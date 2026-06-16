@@ -1,0 +1,271 @@
+# Mobile Robot Localization using A* Search
+# Google Colab Version
+
+from heapq import heappush, heappop
+import matplotlib.pyplot as plt
+
+# Grid Size
+ROWS = 5
+COLS = 5
+
+# Create Empty Grid
+grid = [[0 for _ in range(COLS)] for _ in range(ROWS)]
+
+print("=== MOBILE ROBOT LOCALIZATION ===")
+
+# -------------------------------
+# Input Obstacles
+# -------------------------------
+
+num_obstacles = int(input("Enter Number of Obstacles: "))
+
+for i in range(num_obstacles):
+
+    x = int(input(f"Obstacle {i+1} X (0-4): "))
+    y = int(input(f"Obstacle {i+1} Y (0-4): "))
+
+    if 0 <= x < ROWS and 0 <= y < COLS:
+        grid[x][y] = 1
+
+print("\nGrid Layout:")
+for row in grid:
+    print(row)
+
+# -------------------------------
+# Input Start and Goal
+# -------------------------------
+
+while True:
+
+    sx = int(input("\nEnter Start X: "))
+    sy = int(input("Enter Start Y: "))
+
+    if grid[sx][sy] == 0:
+        break
+
+    print("Start position contains obstacle!")
+
+while True:
+
+    gx = int(input("\nEnter Goal X: "))
+    gy = int(input("Enter Goal Y: "))
+
+    if grid[gx][gy] == 0:
+        break
+
+    print("Goal position contains obstacle!")
+
+start = (sx, sy)
+goal = (gx, gy)
+
+# -------------------------------
+# A* Search Functions
+# -------------------------------
+
+def heuristic(node):
+    return abs(node[0]-goal[0]) + abs(node[1]-goal[1])
+
+def neighbors(node):
+
+    x, y = node
+
+    moves = [(1,0),(-1,0),(0,1),(0,-1)]
+
+    result = []
+
+    for dx, dy in moves:
+
+        nx = x + dx
+        ny = y + dy
+
+        if (0 <= nx < ROWS and
+            0 <= ny < COLS and
+            grid[nx][ny] == 0):
+
+            result.append((nx, ny))
+
+    return result
+
+def reconstruct(came_from):
+
+    path = [goal]
+
+    current = goal
+
+    while current in came_from:
+
+        current = came_from[current]
+        path.append(current)
+
+    path.reverse()
+
+    return path
+
+def a_star():
+
+    open_set = []
+
+    heappush(open_set, (0, start))
+
+    came_from = {}
+
+    g_cost = {start: 0}
+
+    visited_nodes = 0
+
+    while open_set:
+
+        _, current = heappop(open_set)
+
+        visited_nodes += 1
+
+        if current == goal:
+
+            print("\nNodes Expanded:", visited_nodes)
+
+            return reconstruct(came_from)
+
+        for neighbor in neighbors(current):
+
+            tentative_g = g_cost[current] + 1
+
+            if neighbor not in g_cost or tentative_g < g_cost[neighbor]:
+
+                g_cost[neighbor] = tentative_g
+
+                f_cost = tentative_g + heuristic(neighbor)
+
+                heappush(open_set, (f_cost, neighbor))
+
+                came_from[neighbor] = current
+
+    return None
+
+# -------------------------------
+# Sensor Simulation
+# -------------------------------
+
+def sensor_data(position):
+
+    x, y = position
+
+    obstacles = 0
+
+    directions = [(1,0),(-1,0),(0,1),(0,-1)]
+
+    for dx, dy in directions:
+
+        nx = x + dx
+        ny = y + dy
+
+        if (nx < 0 or ny < 0 or
+            nx >= ROWS or ny >= COLS or
+            grid[nx][ny] == 1):
+
+            obstacles += 1
+
+    return {
+        "GPS": position,
+        "Distance Sensor": obstacles,
+        "Camera": "Obstacle Nearby" if obstacles > 0 else "Path Clear"
+    }
+
+# -------------------------------
+# Run Robot
+# -------------------------------
+
+print("\nSensor Information:")
+
+sensor = sensor_data(start)
+
+for k, v in sensor.items():
+    print(k, ":", v)
+
+print("\nRunning A* Search...")
+
+path = a_star()
+
+if path:
+
+    print("\nOptimal Path Found:")
+    print(path)
+
+    print("\nRobot Movement:")
+
+    for step in path:
+        print("Robot at:", step)
+
+else:
+    print("No Path Found")
+
+# -------------------------------
+# Plot Graph
+# -------------------------------
+
+fig, ax = plt.subplots(figsize=(8,8))
+
+for i in range(ROWS):
+    for j in range(COLS):
+
+        if grid[i][j] == 1:
+
+            ax.scatter(
+                j,
+                ROWS-1-i,
+                marker='s',
+                s=1500,
+                label=""
+            )
+
+            ax.text(
+                j,
+                ROWS-1-i,
+                "X",
+                ha='center',
+                va='center'
+            )
+
+# Draw Path
+
+if path:
+
+    x_path = [p[1] for p in path]
+    y_path = [ROWS-1-p[0] for p in path]
+
+    ax.plot(
+        x_path,
+        y_path,
+        linewidth=3,
+        label="Optimal Path"
+    )
+
+# Start
+
+ax.scatter(
+    start[1],
+    ROWS-1-start[0],
+    marker='o',
+    s=300,
+    label='Start'
+)
+
+# Goal
+
+ax.scatter(
+    goal[1],
+    ROWS-1-goal[0],
+    marker='*',
+    s=500,
+    label='Goal'
+)
+
+ax.set_title("Mobile Robot Localization Using A* Search")
+
+ax.set_xticks(range(COLS))
+ax.set_yticks(range(ROWS))
+
+ax.grid(True)
+
+ax.legend()
+
+plt.show()
